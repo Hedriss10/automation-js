@@ -5,8 +5,7 @@ const { stringify } = require('csv-stringify/sync');
 const csv = require('csv-parser');
 
 
-
-class WebDriverManager {
+class WebDriverManagerRo {
     constructor(browser = 'chrome', username, password) {
         /// se for necessário visualizar o fluxo de execução remover ``--headless``, se não deixa ``--headless``
         this.driver = new Builder()
@@ -325,4 +324,6 @@ class WebDriverManager {
     }
 }
 
-module.exports = WebDriverManager;
+export default WebDriverManagerRo
+
+// module.exports = WebDriverManagerRo;
