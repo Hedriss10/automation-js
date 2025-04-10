@@ -4,6 +4,10 @@
     "csv-stringify": "^6.5.2",
     "dotenv": "^16.4.7",
     "i": "^0.3.7",
+    "prettier": "^3.5.3",
     "selenium-webdriver": "^4.30.0"
+  },
+  "scripts": {
+    "format": "prettier --write \"**/*.js\""
   }
 }
