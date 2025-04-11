@@ -1,0 +1,104 @@
+import pg from "pg";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+const { Client } = pg;
+
+console.log("Variáveis de ambiente do banco:", {
+  DB_DEV_USERNAME: process.env.DB_DEV_USERNAME,
+  DB_HOST: process.env.DB_HOST,
+  DB_DEV_PASSWORD: process.env.DB_DEV_PASSWORD,
+  DB_DEV_DATABASE: process.env.DB_DEV_DATABASE,
+  DB_PORT: process.env.DB_PORT,
+});
+
+class DataBaseManagerPostgreSQL {
+  constructor() {
+    this.username = process.env.DB_DEV_USERNAME;
+    this.host = process.env.DB_HOST;
+    this.password = process.env.DB_DEV_PASSWORD;
+    this.database = process.env.DB_DEV_DATABASE;
+    this.port = process.env.DB_PORT;
+    this.client = null; // Inicializa client como null
+  }
+
+  async connect() {
+    if (!this.username || !this.host || !this.database || !this.password || !this.port) {
+      throw new Error("Variáveis de ambiente do banco de dados estão faltando. Verifique o arquivo src/.env");
+    }
+
+    this.client = new Client({
+      user: this.username,
+      host: this.host,
+      database: this.database,
+      password: this.password,
+      port: this.port,
+    });
+
+    try {
+      await this.client.connect();
+      console.log("Conexão com o banco de dados estabelecida com sucesso!");
+    } catch (error) {
+      console.error("Erro ao conectar ao banco de dados:", error.message);
+      throw error;
+    }
+  }
+
+  async selectRoData() {
+    const query = `
+      SELECT * FROM spreed.ro LIMIT 1;
+    `;
+
+    try {
+      const result = await this.client.query(query);
+      return result.rows;
+    } catch (error) {
+      console.error("Erro ao executar SELECT:", error.message);
+      throw error;
+    }
+  }
+
+  async disconnect() {
+    if (this.client) {
+      try {
+        await this.client.end();
+        console.log("Conexão com o banco de dados encerrada.");
+      } catch (error) {
+        console.error("Erro ao desconectar:", error.message);
+        throw error;
+      }
+    }
+  }
+}
+
+export default DataBaseManagerPostgreSQL;
+
+function main() {
+  const databaseManager = new DataBaseManagerPostgreSQL();
+  databaseManager
+    .connect()
+    .then(() => {
+      // Chame a função selectRoData para obter os dados do banco de dados
+      return databaseManager.selectRoData();
+    })
+    .then((result) => {
+      console.log("Dados obtidos do banco de dados:", result);
+      return databaseManager.disconnect();
+    })
+    .then(() => {
+      console.log("Conexão com o banco de dados encerrada.");
+    })
+    .catch((error) => {
+      console.error("Erro:", error);
+    })
+    .finally(() => {
+      console.log("Conexão com o banco de dados encerrada.");
+    });
+}
+
+main();
