@@ -322,10 +322,7 @@ class WebDriverManagerRo {
       const currentUrl = await this.driver.getCurrentUrl();
       console.log("currentUrl", currentUrl);
 
-      if (
-        currentUrl ===
-        "https://consignacao.sistemas.ro.gov.br/#/privado/averbacao/resultado"
-      ) {
+      if (currentUrl === process.env.URL_RO_CHECK) {
         console.log("Redirecionado para página de resultado. Voltando...");
         await this.driver.navigate().back();
         await new Promise((resolve) => setTimeout(resolve, 1000));

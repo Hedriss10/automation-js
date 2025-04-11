@@ -1,9 +1,10 @@
-import "dotenv/config";
 import WebDriverManagerRo from "../core/WebDriverManagerRo.js";
 import * as fs from "fs";
 import csv from "csv-parser";
+import "dotenv/config";
 
 async function extractCPFsFromCSV(inputFile = "data/examplecpf.csv") {
+  // vamos extrair o cpf do banco de dados e manipular eles
   return new Promise((resolve, reject) => {
     const cpfs = [];
     fs.createReadStream(inputFile)
@@ -107,11 +108,6 @@ async function saveResultsToCSV(
   }
 }
 
-const URL_GOV = meta.env.VITE_URL_GOV;
-const URL_CONSULT = meta.env.VITE_URL_CONSULT;
-const USERNME_RO = meta.env.VITE_USERNME_RO;
-const PASSWORD_RO = meta.env.VITE_PASSWORD_RO;
-
 // interface
 async function ExecuteRo() {
   let manager;
@@ -121,7 +117,7 @@ async function ExecuteRo() {
     const config = {
       urlGov: process.env.URL_RO,
       urlConsult: process.env.URL_CONSULT,
-      username: process.env.USERNME_RO,
+      username: process.env.USERNAME_R0,
       password: process.env.PASSWORD_RO,
     };
 

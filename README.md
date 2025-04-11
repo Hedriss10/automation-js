@@ -1,24 +1,21 @@
-# Script de automação 
+Claro! Aqui está uma versão melhorada, com correções gramaticais, emojis para dar um toque mais amigável, e uma estrutura mais clara:
 
-**Descrição:**
-Automatizador de tarefas, interno para uma empresa especifica que atende seus leeads externos e seus sistemas intenos, poupando o trabalho massivo ao atendimento do cliente, para realizar consultas sensiveis. Foi abordado com `selenium`, utilizando `node` e `JavaScript`.
+---
 
+# 🤖 Script de Automação
 
-### Libs do projeto
+## 📝 Descrição
 
-```bash
-{
-  "dependencies": {
-    "csv-parser": "^3.2.0",
-    "csv-stringify": "^6.5.2",
-    "dotenv": "^16.4.7",
-    "i": "^0.3.7",
-    "pg": "^8.14.1",
-    "prettier": "^3.5.3",
-    "selenium-webdriver": "^4.30.0"
-  },
-  "scripts": {
-    "format": "prettier --write \"**/*.js\""
-  },
-}
-```
+Este é um automatizador de tarefas internas desenvolvido para uma empresa específica, com o objetivo de atender *leads* externos e integrar com sistemas internos. A proposta é economizar tempo no atendimento ao cliente ao realizar consultas sensíveis de forma automatizada.
+
+O projeto foi desenvolvido com `Selenium`, utilizando `Node.js` e `JavaScript`.
+
+---
+
+## 💡 Motivação
+
+### O que eu pensei?
+
+Estando mais envolvido no projeto do meu cliente, percebi que havia a necessidade de termos mais controle sobre os dados internos. Inicialmente, os dados sensíveis estavam sendo manipulados em planilhas `.csv` e `.xlsx`, o que até funcionava, mas já estava se tornando inviável — e quase imoral — operar dessa forma.
+
+Sugeri então a criação de um banco de dados interno, o que trouxe mais segurança e organização. Atualmente, estou realizando a coleta e o tratamento dos dados diretamente no banco. Para isso, criamos um `schema` separado para os módulos `ro` e `ms`.
