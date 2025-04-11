@@ -9,14 +9,6 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const { Client } = pg;
 
-console.log("Variáveis de ambiente do banco:", {
-  DB_DEV_USERNAME: process.env.DB_DEV_USERNAME,
-  DB_HOST: process.env.DB_HOST,
-  DB_DEV_PASSWORD: process.env.DB_DEV_PASSWORD,
-  DB_DEV_DATABASE: process.env.DB_DEV_DATABASE,
-  DB_PORT: process.env.DB_PORT,
-});
-
 class DataBaseManagerPostgreSQL {
   constructor() {
     this.username = process.env.DB_DEV_USERNAME;
@@ -24,12 +16,20 @@ class DataBaseManagerPostgreSQL {
     this.password = process.env.DB_DEV_PASSWORD;
     this.database = process.env.DB_DEV_DATABASE;
     this.port = process.env.DB_PORT;
-    this.client = null; // Inicializa client como null
+    this.client = null; // 
   }
 
   async connect() {
-    if (!this.username || !this.host || !this.database || !this.password || !this.port) {
-      throw new Error("Variáveis de ambiente do banco de dados estão faltando. Verifique o arquivo src/.env");
+    if (
+      !this.username ||
+      !this.host ||
+      !this.database ||
+      !this.password ||
+      !this.port
+    ) {
+      throw new Error(
+        "Variáveis de ambiente do banco de dados estão faltando. Verifique o arquivo src/.env",
+      );
     }
 
     this.client = new Client({
@@ -39,7 +39,6 @@ class DataBaseManagerPostgreSQL {
       password: this.password,
       port: this.port,
     });
-
     try {
       await this.client.connect();
       console.log("Conexão com o banco de dados estabelecida com sucesso!");
@@ -49,13 +48,18 @@ class DataBaseManagerPostgreSQL {
     }
   }
 
-  async selectRoData() {
+  async selectRoData(count = 1) {
+    const limit = Math.max(1, Math.floor(Number(count)));
     const query = `
-      SELECT * FROM spreed.ro LIMIT 1;
+      SELECT 
+        regexp_replace(cpf, '(\\d{3})(\\d{3})(\\d{3})(\\d{2})', '\\1.\\2.\\3-\\4') AS cpf_formatado
+      FROM 
+        spreed.ro 
+      LIMIT $1;
     `;
 
     try {
-      const result = await this.client.query(query);
+      const result = await this.client.query(query, [limit]);
       return result.rows;
     } catch (error) {
       console.error("Erro ao executar SELECT:", error.message);
@@ -83,8 +87,7 @@ function main() {
   databaseManager
     .connect()
     .then(() => {
-      // Chame a função selectRoData para obter os dados do banco de dados
-      return databaseManager.selectRoData();
+      return databaseManager.selectRoData(3); // testando limti 3
     })
     .then((result) => {
       console.log("Dados obtidos do banco de dados:", result);
