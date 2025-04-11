@@ -1,8 +1,10 @@
-const { Builder, By, Key, until } = require("selenium-webdriver");
-const chrome = require("selenium-webdriver/chrome");
-const fs = require("fs");
-const { stringify } = require("csv-stringify/sync");
-const csv = require("csv-parser");
+import "dotenv/config";
+import { Builder, By, Key, until } from "selenium-webdriver";
+
+import chrome from "selenium-webdriver/chrome.js";
+import * as fs from "fs";
+import { stringify } from "csv-stringify/sync";
+import csv from "csv-parser";
 
 class WebDriverManagerRo {
   constructor(browser = "chrome", username, password) {
