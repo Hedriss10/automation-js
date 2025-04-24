@@ -1,7 +1,3 @@
-Claro! Aqui está uma versão melhorada, com correções gramaticais, emojis para dar um toque mais amigável, e uma estrutura mais clara:
-
----
-
 # 🤖 Script de Automação
 
 ## 📝 Descrição
