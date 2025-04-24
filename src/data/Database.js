@@ -2,6 +2,7 @@ import pg from "pg";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { deflate } from "zlib";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +17,7 @@ class DataBaseManagerPostgreSQL {
     this.password = process.env.DB_DEV_PASSWORD;
     this.database = process.env.DB_DEV_DATABASE;
     this.port = process.env.DB_PORT;
-    this.client = null; // 
+    this.client = null; //
   }
 
   async connect() {
@@ -80,8 +81,6 @@ class DataBaseManagerPostgreSQL {
   }
 }
 
-export default DataBaseManagerPostgreSQL;
-
 function main() {
   const databaseManager = new DataBaseManagerPostgreSQL();
   databaseManager
@@ -105,3 +104,5 @@ function main() {
 }
 
 main();
+
+
