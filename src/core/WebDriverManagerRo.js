@@ -96,18 +96,23 @@ class WebDriverManagerRo {
 
   async clearField(field) {
     try {
-      await field.click();
+      await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", field);
       await this.driver.sleep(100);
-      // Tentar limpar via JavaScript primeiro
       await this.driver.executeScript("arguments[0].value = '';", field);
       await this.driver.sleep(100);
-      // Verificar se o campo está vazio
       let value = await field.getAttribute("value");
       if (value) {
         console.warn(`Campo não limpo via JavaScript. Valor atual: ${value}. Tentando método alternativo...`);
-        await field.sendKeys(Key.chord(Key.CONTROL, "a"));
-        await field.sendKeys(Key.DELETE);
-        await this.driver.sleep(100);
+        try {
+          await field.click();
+          await field.sendKeys(Key.chord(Key.CONTROL, "a"));
+          await field.sendKeys(Key.DELETE);
+          await this.driver.sleep(100);
+        } catch (clickError) {
+          console.log("Clique falhou, tentando via JavaScript...");
+          await this.driver.executeScript("arguments[0].click();", field);
+          await this.driver.executeScript("arguments[0].value = '';", field);
+        }
         value = await field.getAttribute("value");
         if (value) {
           console.warn(`Campo ainda não limpo. Valor atual: ${value}. Tentando clear()...`);
@@ -122,24 +127,90 @@ class WebDriverManagerRo {
     }
   }
 
+  async closeModalIfPresent() {
+    try {
+      console.log("Verificando se há modal aberto...");
+      const backdrops = await this.driver.findElements(By.css('div.q-dialog__backdrop'));
+      if (backdrops.length > 0 && await backdrops[0].isDisplayed()) {
+        console.log("Modal encontrado. Tentando fechar...");
+        // Tentar clicar no botão de fechar (ícone "close" ou texto "Fechar")
+        try {
+          const closeButton = await this.driver.findElement(
+            By.xpath('//button[contains(@class, "q-btn") and (.//i[contains(@class, "material-icons") and text()="close"] or .//span[contains(text(), "Fechar")])]')
+          );
+          await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", closeButton);
+          await this.driver.sleep(200);
+          try {
+            await closeButton.click();
+          } catch (clickError) {
+            console.log("Clique no botão de fechar falhou, tentando via JavaScript...");
+            await this.driver.executeScript("arguments[0].click();", closeButton);
+          }
+          console.log("Modal fechado com botão de fechar.");
+        } catch (e) {
+          console.log("Botão de fechar não encontrado. Tentando clicar no backdrop...");
+          try {
+            await this.driver.executeScript("document.querySelector('.q-dialog__backdrop').click();");
+          } catch (backdropError) {
+            console.log("Clique no backdrop falhou. Removendo modal via JavaScript...");
+            await this.driver.executeScript(`
+              const dialog = document.querySelector('div.q-dialog');
+              const backdrop = document.querySelector('div.q-dialog__backdrop');
+              if (dialog) dialog.remove();
+              if (backdrop) backdrop.remove();
+            `);
+          }
+          console.log("Modal fechado via backdrop ou JavaScript.");
+        }
+        await this.driver.sleep(1500); // Aguardar o modal fechar completamente
+        // Verificar se o modal ainda está presente
+        const remainingBackdrops = await this.driver.findElements(By.css('div.q-dialog__backdrop'));
+        if (remainingBackdrops.length > 0 && await remainingBackdrops[0].isDisplayed()) {
+          console.warn("Modal não foi fechado completamente. Tentando novamente...");
+          await this.driver.executeScript("document.querySelector('.q-dialog__backdrop').click();");
+          await this.driver.sleep(1000);
+        }
+      } else {
+        console.log("Nenhum modal encontrado.");
+      }
+    } catch (error) {
+      console.error("Erro ao fechar modal:", error.message);
+      // Não falhar se o modal não puder ser fechado
+    }
+  }
+
   async fillFormFields({ cpf, matricula = "", pensionista = "N" }) {
     try {
       console.log("Preenchendo formulário...");
 
+      // Fechar qualquer modal aberto
+      await this.closeModalIfPresent();
+
+      // Verificar se o formulário está acessível
+      const cpfField = await this.waitAndFind(By.css('input[name="cpf"]'), 20000);
+      await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", cpfField);
+      await this.driver.sleep(200);
+
       const cpfFormatado = await this.formatCPF(cpf);
       console.log(`CPF formatado: ${cpfFormatado}`);
 
-      const cpfField = await this.waitAndFind(By.css('input[name="cpf"]'), 20000);
       await this.clearField(cpfField);
-      await cpfField.sendKeys(cpfFormatado);
+      await this.driver.sleep(200);
+      try {
+        await cpfField.sendKeys(cpfFormatado);
+      } catch (sendKeysError) {
+        console.log("sendKeys falhou, tentando via JavaScript...");
+        await this.driver.executeScript(`arguments[0].value = '${cpfFormatado}';`, cpfField);
+      }
       await this.driver.sleep(500);
 
       // Verificar se o CPF foi preenchido corretamente
       const cpfValue = await cpfField.getAttribute("value");
       if (cpfValue !== cpfFormatado) {
         console.warn(`CPF não preenchido corretamente. Esperado: ${cpfFormatado}, Encontrado: ${cpfValue}`);
+        await this.closeModalIfPresent(); // Tentar fechar modal novamente
         await this.clearField(cpfField);
-        await cpfField.sendKeys(cpfFormatado);
+        await this.driver.executeScript(`arguments[0].value = '${cpfFormatado}';`, cpfField);
         await this.driver.sleep(500);
       }
 
@@ -223,11 +294,16 @@ class WebDriverManagerRo {
     try {
       console.log("Extraindo dados da tabela...");
 
+      // Aguardar o modal de resultados
+      await this.driver.wait(until.elementLocated(By.css('div.q-dialog')), 40000);
+      const modal = await this.waitAndFind(By.css('div.q-dialog'), 40000);
+
       let table;
       try {
-        table = await this.waitAndFind(By.css('table.q-table'), 40000); // Alterado para seletor mais genérico e timeout maior
+        table = await modal.findElement(By.css('table[cellspacing="0"][cellpadding="0"]'));
+        await this.driver.wait(until.elementIsVisible(table), 40000);
       } catch (e) {
-        console.log("Tabela não encontrada ou não carregada para o CPF.");
+        console.log("Tabela não encontrada ou não carregada no modal.");
         return { headers: [], rows: [] };
       }
 
@@ -239,10 +315,7 @@ class WebDriverManagerRo {
       }
 
       const rows = [];
-      const rowContainers = await this.driver.findElements(
-        By.xpath('//tbody/tr[not(contains(@style,"display: none"))] | //tbody/div[@style="display: contents;"]/tr[not(contains(@style,"display: none"))]'),
-      );
-
+      const rowContainers = await table.findElements(By.xpath('.//tbody//tr[not(contains(@style,"display: none")) and not(.//td[contains(text(), "Nenhum registro encontrado")])]'));
       for (const row of rowContainers) {
         const rowData = {};
         const cells = await row.findElements(By.css('td:not([style*="display: none"])'));
@@ -261,6 +334,9 @@ class WebDriverManagerRo {
       }
 
       console.log(`Encontrados ${rows.length} registros na tabela`);
+      if (rows.length > 0) {
+        console.log("Dados extraídos:", JSON.stringify(rows, null, 2));
+      }
       return { headers, rows };
     } catch (error) {
       console.error("Erro ao extrair dados da tabela:", error.message);
@@ -272,6 +348,8 @@ class WebDriverManagerRo {
     try {
       console.log("Processando modal com margens...");
       const tableData = await this.extractTableData();
+      // Fechar o modal após extrair os dados
+      await this.closeModalIfPresent();
       return tableData;
     } catch (error) {
       console.error("Erro ao processar modal:", error.message);
@@ -289,8 +367,12 @@ class WebDriverManagerRo {
         await this.driver.navigate().to(process.env.URL_CONSULT);
         await new Promise((resolve) => setTimeout(resolve, 3000));
         console.log("Retornou para:", await this.driver.getCurrentUrl());
+        // Garantir que o modal esteja fechado após voltar
+        await this.closeModalIfPresent();
       } else {
         console.log("Não foi necessário voltar. URL atual é adequada.");
+        // Fechar qualquer modal que possa estar aberto
+        await this.closeModalIfPresent();
       }
     } catch (error) {
       console.error("Erro ao verificar ou redirecionar URL:", error.message);
