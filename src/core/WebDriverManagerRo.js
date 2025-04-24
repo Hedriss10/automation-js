@@ -133,41 +133,70 @@ class WebDriverManagerRo {
       const backdrops = await this.driver.findElements(By.css('div.q-dialog__backdrop'));
       if (backdrops.length > 0 && await backdrops[0].isDisplayed()) {
         console.log("Modal encontrado. Tentando fechar...");
-        // Tentar clicar no botão de fechar (ícone "close" ou texto "Fechar")
+
+        // Prioridade 1: Clicar no botão "Confirmar"
         try {
-          const closeButton = await this.driver.findElement(
-            By.xpath('//button[contains(@class, "q-btn") and (.//i[contains(@class, "material-icons") and text()="close"] or .//span[contains(text(), "Fechar")])]')
+          const confirmButton = await this.driver.findElement(
+            By.xpath('//button[contains(@class, "q-btn") and .//span[contains(text(), "Confirmar")]]')
           );
-          await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", closeButton);
+          await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", confirmButton);
           await this.driver.sleep(200);
           try {
-            await closeButton.click();
+            await confirmButton.click();
           } catch (clickError) {
-            console.log("Clique no botão de fechar falhou, tentando via JavaScript...");
-            await this.driver.executeScript("arguments[0].click();", closeButton);
+            console.log("Clique no botão Confirmar falhou, tentando via JavaScript...");
+            await this.driver.executeScript("arguments[0].click();", confirmButton);
           }
-          console.log("Modal fechado com botão de fechar.");
+          console.log("Modal fechado com botão Confirmar.");
         } catch (e) {
-          console.log("Botão de fechar não encontrado. Tentando clicar no backdrop...");
+          console.log("Botão Confirmar não encontrado. Tentando outros métodos...");
+
+          // Prioridade 2: Clicar em botão de fechar (ícone "close" ou texto "Fechar")
           try {
-            await this.driver.executeScript("document.querySelector('.q-dialog__backdrop').click();");
-          } catch (backdropError) {
-            console.log("Clique no backdrop falhou. Removendo modal via JavaScript...");
-            await this.driver.executeScript(`
-              const dialog = document.querySelector('div.q-dialog');
-              const backdrop = document.querySelector('div.q-dialog__backdrop');
-              if (dialog) dialog.remove();
-              if (backdrop) backdrop.remove();
-            `);
+            const closeButton = await this.driver.findElement(
+              By.xpath('//button[contains(@class, "q-btn") and (.//i[contains(@class, "material-icons") and text()="close"] or .//span[contains(text(), "Fechar")])]')
+            );
+            await this.driver.executeScript("arguments[0].scrollIntoView({block: 'center'});", closeButton);
+            await this.driver.sleep(200);
+            try {
+              await closeButton.click();
+            } catch (clickError) {
+              console.log("Clique no botão de fechar falhou, tentando via JavaScript...");
+              await this.driver.executeScript("arguments[0].click();", closeButton);
+            }
+            console.log("Modal fechado com botão de fechar.");
+          } catch (e) {
+            console.log("Botão de fechar não encontrado. Tentando clicar no backdrop...");
+            
+            // Prioridade 3: Clicar no backdrop
+            try {
+              await this.driver.executeScript("document.querySelector('.q-dialog__backdrop').click();");
+              console.log("Modal fechado via backdrop.");
+            } catch (backdropError) {
+              console.log("Clique no backdrop falhou. Removendo modal via JavaScript...");
+              
+              // Última opção: Remover modal via JavaScript
+              await this.driver.executeScript(`
+                const dialog = document.querySelector('div.q-dialog');
+                const backdrop = document.querySelector('div.q-dialog__backdrop');
+                if (dialog) dialog.remove();
+                if (backdrop) backdrop.remove();
+              `);
+              console.log("Modal removido via JavaScript.");
+            }
           }
-          console.log("Modal fechado via backdrop ou JavaScript.");
         }
+
         await this.driver.sleep(1500); // Aguardar o modal fechar completamente
+        
         // Verificar se o modal ainda está presente
         const remainingBackdrops = await this.driver.findElements(By.css('div.q-dialog__backdrop'));
         if (remainingBackdrops.length > 0 && await remainingBackdrops[0].isDisplayed()) {
-          console.warn("Modal não foi fechado completamente. Tentando novamente...");
-          await this.driver.executeScript("document.querySelector('.q-dialog__backdrop').click();");
+          console.warn("Modal não foi fechado completamente. Tentando novamente com botão Confirmar...");
+          const confirmButton = await this.driver.findElement(
+            By.xpath('//button[contains(@class, "q-btn") and .//span[contains(text(), "Confirmar")]]')
+          );
+          await this.driver.executeScript("arguments[0].click();", confirmButton);
           await this.driver.sleep(1000);
         }
       } else {
