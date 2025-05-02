@@ -31,7 +31,7 @@ async function executeRo() {
     await manager.navigateTo(URL_GOV);
     await manager.loginGov();
     await manager.navigateTo(URL_CONSULT);
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   };
 
   try {
@@ -44,7 +44,9 @@ async function executeRo() {
     if (!PASSWORD_RO) missingVars.push("PASSWORD_RO");
 
     if (missingVars.length > 0) {
-      throw new Error(`Variáveis de ambiente faltando: ${missingVars.join(", ")}. Verifique o arquivo src/.env`);
+      throw new Error(
+        `Variáveis de ambiente faltando: ${missingVars.join(", ")}. Verifique o arquivo src/.env`,
+      );
     }
 
     db = new DataBaseManagerPostgreSQL();
@@ -75,7 +77,9 @@ async function executeRo() {
 
       for (const [index, cpfData] of cpfsFromDb.entries()) {
         const rawCPF = cpfData.cpf_formatado.replace(/[^\d]/g, "");
-        console.log(`Processando ${index + 1}/${cpfsFromDb.length} (lote ${batchNumber}): CPF ${cpfData.cpf_formatado}`);
+        console.log(
+          `Processando ${index + 1}/${cpfsFromDb.length} (lote ${batchNumber}): CPF ${cpfData.cpf_formatado}`,
+        );
 
         let attempt = 0;
         let success = false;
@@ -84,16 +88,20 @@ async function executeRo() {
           try {
             const currentUrl = await manager.driver.getCurrentUrl();
             if (!currentUrl.includes(URL_CONSULT)) {
-              console.log(`URL atual (${currentUrl}) não é a de consulta. Navegando para ${URL_CONSULT}...`);
+              console.log(
+                `URL atual (${currentUrl}) não é a de consulta. Navegando para ${URL_CONSULT}...`,
+              );
               await manager.navigateTo(URL_CONSULT);
-              await new Promise((resolve) => setTimeout(resolve, 3000));
+              await new Promise((resolve) => setTimeout(resolve, 1000));
             }
 
             await manager.fillFormFields({ cpf: rawCPF, matricula: "" });
             const tableData = await manager.handleModalWithMargins();
 
             if (!tableData.rows || tableData.rows.length === 0) {
-              console.log(`Nenhum dado encontrado para o CPF ${cpfData.cpf_formatado}`);
+              console.log(
+                `Nenhum dado encontrado para o CPF ${cpfData.cpf_formatado}`,
+              );
               await db.insertResultSearchRo(null, rawCPF, null, null);
             } else {
               for (const row of tableData.rows) {
@@ -116,15 +124,21 @@ async function executeRo() {
             );
             if (attempt < config.retryAttempts) {
               if (error.message.includes("no such window")) {
-                console.log("Navegador fechado inesperadamente. Reiniciando...");
+                console.log(
+                  "Navegador fechado inesperadamente. Reiniciando...",
+                );
                 await initializeManager();
               } else {
-                await new Promise((resolve) => setTimeout(resolve, config.retryDelayMs));
+                await new Promise((resolve) =>
+                  setTimeout(resolve, config.retryDelayMs),
+                );
                 await manager.navigateTo(URL_CONSULT);
-                await new Promise((resolve) => setTimeout(resolve, 3000));
+                await new Promise((resolve) => setTimeout(resolve, 1000));
               }
             } else {
-              console.log(`Falha após ${config.retryAttempts} tentativas para CPF ${cpfData.cpf_formatado}. Salvando como erro.`);
+              console.log(
+                `Falha após ${config.retryAttempts} tentativas para CPF ${cpfData.cpf_formatado}. Salvando como erro.`,
+              );
               await db.insertResultSearchRo(null, rawCPF, null, null);
               await db.insertHasFilter(cpfData.cpf_raw);
             }
