@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 import chrome from "selenium-webdriver/chrome.js";
+import logger from "../log/Log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -407,28 +408,104 @@ class WebDriverManagerRo {
     }
   }
 
+  async scrapeMargins() {
+    try {
+      logger.info("Coletando dados das margens");
+
+      // Localizar os elementos das margens usando seletores CSS
+      const margemDisponivelElement = await this.waitAndFind(
+        By.css("div.q-badge.bg-blue"),
+        1000,
+      );
+      const margemCartaoElement = await this.waitAndFind(
+        By.css("div.q-badge.bg-red:nth-of-type(1)"),
+        1000,
+      );
+      const margemCartaoBeneficioElement = await this.waitAndFind(
+        By.css("div.q-badge.bg-red:nth-of-type(2)"),
+        1000,
+      );
+
+      // Extrair os textos
+      const margemDisponivel = await margemDisponivelElement.getText();
+      const margemCartao = await margemCartaoElement.getText();
+      const margemCartaoBeneficio =
+        await margemCartaoBeneficioElement.getText();
+
+      // Coletar outros dados
+      const nomeElement = await this.waitAndFind(
+        By.css("span.text-weight-bold"),
+        1000,
+      );
+      const cpfElement = await this.waitAndFind(
+        By.xpath('//span[contains(text(), "CPF:")]/following-sibling::text()'),
+        1000,
+      );
+      const matriculaElement = await this.waitAndFind(
+        By.xpath(
+          '//span[contains(text(), "Matrícula:")]/following-sibling::text()',
+        ),
+        1000,
+      );
+
+      const nome = await nomeElement.getText();
+      const cpf = await cpfElement.getText();
+      const matricula = await matriculaElement.getText();
+
+      // Validar margens (ignorar se "Sem Margem")
+      if (
+        margemDisponivel === "Sem Margem" ||
+        margemCartao === "Sem Margem" ||
+        margemCartaoBeneficio === "Sem Margem"
+      ) {
+        logger.info("Ignorando dados com 'Sem Margem' na página de detalhes.");
+        return null;
+      }
+
+      return {
+        nome: nome.trim(),
+        cpf: cpf.trim(),
+        matricula: matricula.trim(),
+        margemDisponivel: margemDisponivel.trim(),
+        margemCartao: margemCartao.trim(),
+        margemCartaoBeneficio: margemCartaoBeneficio.trim(),
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      logger.error("Ignorando dados com 'Sem Margem' na página de detalhes.");
+      return null;
+    }
+  }
+
   async extractTableData() {
     try {
       console.log("Extraindo dados da tabela...");
 
       // Aguardar o modal de resultados
-      await this.driver.wait(
-        until.elementLocated(By.css("div.q-dialog")),
-        4000,
-      );
-      const modal = await this.waitAndFind(By.css("div.q-dialog"), 4000);
+      let modal;
+      try {
+        await this.driver.wait(
+          until.elementLocated(By.css("div.q-dialog")),
+          1000,
+        );
+        modal = await this.waitAndFind(By.css("div.q-dialog"), 1000);
+      } catch (error) {
+        console.log("Modal não encontrado ou não carregado.");
+        return { headers: [], rows: [] };
+      }
 
       let table;
       try {
         table = await modal.findElement(
           By.css('table[cellspacing="0"][cellpadding="0"]'),
         );
-        await this.driver.wait(until.elementIsVisible(table), 4000);
-      } catch (e) {
+        await this.driver.wait(until.elementIsVisible(table), 1000);
+      } catch (error) {
         console.log("Tabela não encontrada ou não carregada no modal.");
         return { headers: [], rows: [] };
       }
 
+      // Extrair cabeçalhos
       const headers = [];
       const headerElements = await table.findElements(
         By.css('thead th:not([style*="display: none"])'),
@@ -437,18 +514,22 @@ class WebDriverManagerRo {
         const text = await header.getText();
         if (text.trim()) headers.push(text.trim());
       }
+      console.log("Cabeçalhos encontrados:", headers);
 
+      // Extrair linhas
       const rows = [];
       const rowContainers = await table.findElements(
         By.xpath(
           './/tbody//tr[not(contains(@style,"display: none")) and not(.//td[contains(text(), "Nenhum registro encontrado")])]',
         ),
       );
+
       for (const row of rowContainers) {
         const rowData = {};
         const cells = await row.findElements(
           By.css('td:not([style*="display: none"])'),
         );
+
         for (let i = 0; i < cells.length && i < headers.length; i++) {
           try {
             const cellText = await cells[i].getText();
@@ -458,19 +539,36 @@ class WebDriverManagerRo {
             rowData[headers[i]] = "";
           }
         }
+
+        // Ignorar linhas com "Sem Margem" em "Margem Disponível" ou "Margem Cartão"
+        if (
+          rowData["Margem disponível"] === "Sem Margem" ||
+          rowData["Margem Cartão"] === "Sem Margem"
+        ) {
+          console.log(
+            `Ignorando linha com matrícula ${rowData["Matricula"]} por conter "Sem Margem"`,
+          );
+          continue;
+        }
+
         if (Object.keys(rowData).length > 0) {
           rows.push(rowData);
         }
       }
 
-      console.log(`Encontrados ${rows.length} registros na tabela`);
+      console.log(`Encontrados ${rows.length} registros válidos na tabela`);
       if (rows.length > 0) {
         console.log("Dados extraídos:", JSON.stringify(rows, null, 2));
+      } else {
+        console.log(
+          "Nenhuma linha válida encontrada (todas com 'Sem Margem' ou vazias).",
+        );
       }
+
       return { headers, rows };
     } catch (error) {
       console.error("Erro ao extrair dados da tabela:", error.message);
-      throw error;
+      return { headers: [], rows: [] }; // Retornar vazio em caso de erro
     }
   }
 
@@ -478,12 +576,40 @@ class WebDriverManagerRo {
     try {
       console.log("Processando modal com margens...");
       const tableData = await this.extractTableData();
-      // Fechar o modal após extrair os dados
+
+      // Se houver dados na tabela, processá-los
+      if (tableData.rows && tableData.rows.length > 0) {
+        console.log("Dados da tabela encontrados:", tableData);
+        // Clicar na primeira linha válida para acessar a página de detalhes
+        const validRows = tableData.rows;
+        if (validRows.length > 0) {
+          const firstRowMatricula = validRows[0]["Matricula"];
+          console.log(
+            `Selecionando linha com matrícula ${firstRowMatricula}...`,
+          );
+          const radioButton = await this.waitAndFind(
+            By.xpath(
+              `//tr[td[contains(text(), "${firstRowMatricula}")]]//div[@role="radio"]`,
+            ),
+            5000,
+          );
+          await radioButton.click();
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          const marginsData = await this.checkExistsUrlAheadSearch();
+          return marginsData ? { margins: marginsData } : tableData;
+        }
+      }
+
+      console.log(
+        "Nenhuma tabela válida encontrada, verificando URL para margens...",
+      );
+      const marginsData = await this.checkExistsUrlAheadSearch();
       await this.closeModalIfPresent();
-      return tableData;
+      return marginsData ? { margins: marginsData } : { headers: [], rows: [] };
     } catch (error) {
       console.error("Erro ao processar modal:", error.message);
-      throw error;
+      return { headers: [], rows: [] };
     }
   }
 
@@ -493,20 +619,30 @@ class WebDriverManagerRo {
       console.log("URL atual:", currentUrl);
 
       if (currentUrl.includes(process.env.URL_RO_CHECK)) {
-        console.log("Redirecionado para página de resultado. Voltando...");
+        console.log(
+          "Redirecionado para página de resultado. Coletando dados...",
+        );
+
+        // Coletar os dados das margens
+        const marginsData = await this.scrapeMargins();
+
+        // Voltar para a URL de consulta
         await this.driver.navigate().to(process.env.URL_CONSULT);
         await new Promise((resolve) => setTimeout(resolve, 3000));
         console.log("Retornou para:", await this.driver.getCurrentUrl());
+
         // Garantir que o modal esteja fechado após voltar
         await this.closeModalIfPresent();
+
+        return marginsData; // Retornar os dados coletados ou null
       } else {
         console.log("Não foi necessário voltar. URL atual é adequada.");
-        // Fechar qualquer modal que possa estar aberto
         await this.closeModalIfPresent();
+        return null;
       }
     } catch (error) {
       console.error("Erro ao verificar ou redirecionar URL:", error.message);
-      throw error;
+      return null;
     }
   }
 

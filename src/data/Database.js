@@ -95,23 +95,33 @@ class DataBaseManagerPostgreSQL {
    * @param {string} margem_cartao - Margem do cartão.
    * @returns {Promise<Object>} - Resultado da query.
    */
-  async insertResultSearchRo(name, cpf_search, margem, margem_cartao) {
-    const stmt = `
-      INSERT INTO spreed.result_search_ro (name, cpf_search, margem, margem_cartao)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *;
-    `;
-
+  async insertResultSearchRo(
+    nome,
+    cpf_search,
+    margemDisponivel,
+    margemCartao,
+    margemCartaoBeneficio,
+  ) {
     try {
-      const result = await this.client.query(stmt, [
-        name,
+      const query = `
+        INSERT INTO spreed.result_search_ro (
+          name, cpf_search, margem_disponivel, margem_cartao, margem_cartao_beneficio, created_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW());
+      `;
+
+      await this.client.query(query, [
+        nome,
         cpf_search,
-        margem,
-        margem_cartao,
+        margemDisponivel,
+        margemCartao,
+        margemCartaoBeneficio,
       ]);
-      return result.rows[0];
+      console.log(`Dados inseridos/atualizados para CPF ${cpf_search}`);
     } catch (error) {
-      console.error("Erro ao executar INSERT:", error.message);
+      console.error(
+        `Erro ao inserir dados para CPF ${cpf_search}:`,
+        error.message,
+      );
       throw error;
     }
   }

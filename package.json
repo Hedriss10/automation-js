@@ -3,17 +3,18 @@
     "version": "1.0.0",
     "type": "module",
     "dependencies": {
-      "csv-parser": "^3.2.0",
-      "csv-stringify": "^6.5.2",
-      "dotenv": "^16.5.0",
-      "i": "^0.3.7",
-      "pg": "^8.14.1",
-      "selenium-webdriver": "^4.31.0"
+        "csv-parser": "^3.2.0",
+        "csv-stringify": "^6.5.2",
+        "dotenv": "^16.5.0",
+        "i": "^0.3.7",
+        "pg": "^8.14.1",
+        "selenium-webdriver": "^4.31.0",
+        "winston": "^3.17.0"
     },
     "devDependencies": {
-      "prettier": "^3.5.3"
+        "prettier": "^3.5.3"
     },
     "scripts": {
-      "format": "prettier --write \"**/*.js\""
+        "format": "prettier --write \"**/*.js\""
     }
-  }
+}

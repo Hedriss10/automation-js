@@ -3,6 +3,7 @@ import DataBaseManagerPostgreSQL from "../data/Database.js";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import logger from "../log/Log.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,10 @@ const config = {
   retryAttempts: 3,
   retryDelayMs: 2000,
 };
+
+// ... (importações e configurações existentes mantidas)
+
+// ... (importações e configurações existentes mantidas)
 
 async function executeRo() {
   let manager = null;
@@ -53,10 +58,10 @@ async function executeRo() {
     await db.connect();
 
     const pendingCountQuery = `
-      SELECT COUNT(*) AS count
-      FROM spreed.ro 
-      WHERE has_filter = FALSE OR has_filter IS NULL;
-    `;
+        SELECT COUNT(*) AS count
+        FROM spreed.ro 
+        WHERE has_filter = FALSE OR has_filter IS NULL;
+      `;
     const pendingCountResult = await db.client.query(pendingCountQuery);
     const pendingCount = parseInt(pendingCountResult.rows[0].count, 10);
     console.log(`Total de CPFs pendentes: ${pendingCount}`);
@@ -96,22 +101,37 @@ async function executeRo() {
             }
 
             await manager.fillFormFields({ cpf: rawCPF, matricula: "" });
-            const tableData = await manager.handleModalWithMargins();
+            const resultData = await manager.handleModalWithMargins();
 
-            if (!tableData.rows || tableData.rows.length === 0) {
+            if (resultData.margins) {
+              // Dados das margens encontrados
+              const {
+                nome,
+                cpf,
+                margemDisponivel,
+                margemCartao,
+                margemCartaoBeneficio,
+              } = resultData.margins;
               console.log(
-                `Nenhum dado encontrado para o CPF ${cpfData.cpf_formatado}`,
+                `Dados coletados para CPF ${cpf}:`,
+                resultData.margins,
               );
-              await db.insertResultSearchRo(null, rawCPF, null, null);
+              await db.insertResultSearchRo(
+                nome || null,
+                rawCPF,
+                margemDisponivel || null,
+                margemCartao || null,
+                margemCartaoBeneficio || null,
+              );
+            } else if (resultData.rows && resultData.rows.length > 0) {
+              // Dados da tabela encontrados (não deve ocorrer, já que clicamos na linha)
+              console.log("Dados da tabela não esperados:", resultData.rows);
+              await db.insertResultSearchRo(null, rawCPF, null, null, null);
             } else {
-              for (const row of tableData.rows) {
-                await db.insertResultSearchRo(
-                  row.Nome || null,
-                  rawCPF,
-                  row["Margem disponível"] || null,
-                  row["Margem Cartão"] || null,
-                );
-              }
+              console.log(
+                `Nenhum dado válido encontrado para o CPF ${cpfData.cpf_formatado}`,
+              );
+              await db.insertResultSearchRo(null, rawCPF, null, null, null);
             }
 
             await db.insertHasFilter(cpfData.cpf_raw);
@@ -139,7 +159,7 @@ async function executeRo() {
               console.log(
                 `Falha após ${config.retryAttempts} tentativas para CPF ${cpfData.cpf_formatado}. Salvando como erro.`,
               );
-              await db.insertResultSearchRo(null, rawCPF, null, null);
+              await db.insertResultSearchRo(null, rawCPF, null, null, null);
               await db.insertHasFilter(cpfData.cpf_raw);
             }
           }
